@@ -1,6 +1,7 @@
 # A Discord Bot that listens to a voice channel, transcribes the audio and assigns tasks to the users.
 
 Yoinking https://github.com/Dhravya/discord-voice-transcript-for-teams
+
 Removing chat summarization for now as I don't want it / need it at this stage :)
 
 ## How to use
