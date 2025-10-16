@@ -1,5 +1,4 @@
 import discord
-import openai
 from dotenv import load_dotenv
 from os import environ as env
 from const import conversationSummarySchema
@@ -21,12 +20,6 @@ options = PrerecordedOptions(
 )
 
 discord.opus.load_opus("/usr/local/opt/opus/lib/libopus.0.dylib")
-
-client = openai.OpenAI(
-    base_url="https://api.endpoints.anyscale.com/v1",
-    api_key=env.get("ANYSCALE_MISTRAL_TOKEN"),
-)
-
 
 @bot.command()
 async def record(ctx):
@@ -94,22 +87,9 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
         transcript += f"{word['punctuated_word']} "
 
     transcript = transcript.strip()
-
-    chat_completion = client.chat.completions.create(
-        model="mistralai/Mistral-7B-Instruct-v0.1",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a conversation summarizer. You are also responsible to assign action items to the users. Below is a transcript of a conversation",
-            },
-            {"role": "user", "content": transcript},
-        ],
-        temperature=0.7,
-        tools=[{"type": "function", "function": conversationSummarySchema}],
-    )
-
+    
     await channel.send(
-        f"finished recording audio for: {', '.join(recorded_users)}. Here is the transcript: \n\n{transcript}\n\nHere is the summary: \n\n{chat_completion.choices[0].message.content}"
+        f"finished recording audio for: {', '.join(recorded_users)}. Here is the transcript: \n\n{transcript}\n\nHere is the summary: \n\n"
     )
 
 
