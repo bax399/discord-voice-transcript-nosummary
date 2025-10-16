@@ -1,7 +1,6 @@
 import discord
 from dotenv import load_dotenv
 from os import environ as env
-from const import conversationSummarySchema
 from deepgram import DeepgramClient, PrerecordedOptions, FileSource
 
 bot = discord.Bot()
