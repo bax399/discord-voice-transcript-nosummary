@@ -1,6 +1,7 @@
 # A Discord Bot that listens to a voice channel, transcribes the audio and assigns tasks to the users.
 
-Working in startups and small teams on discord, I often found myself in the situation where I had to take notes during a meeting. This is possible on google meet and other services using otter.ai, fireflies.ai and other services. But there's nothing for discord.
+Yoinking https://github.com/Dhravya/discord-voice-transcript-for-teams
+Removing chat summarization for now as I don't want it / need it at this stage :)
 
 ## How to use
 
@@ -9,7 +10,7 @@ Working in startups and small teams on discord, I often found myself in the situ
 3. Create a `.env` file and add the following variables:
     - `DISCORD_BOT_TOKEN`: The token of your discord bot
     - `DEEPGRAM_API_TOKEN`: For transcription
-    - `ANYSCALE_MISTRAL_TOKEN`: For summary and analysis of the transcript
+    ~~- `ANYSCALE_MISTRAL_TOKEN`: For summary and analysis of the transcript~~
 
 4. Run the bot `python main.py`
 
@@ -21,5 +22,5 @@ Working in startups and small teams on discord, I often found myself in the situ
 ## Tools used
 
 - [Deepgram](https://www.deepgram.com/) - For transcription
-- [Anyscale](https://www.anyscale.com/) - For summary and analysis of the transcript, used because it allows function calling on mistral.
+~~- [Anyscale](https://www.anyscale.com/) - For summary and analysis of the transcript, used because it allows function calling on mistral.~~
 - [Pycord](https://pycord.dev) - Python wrapper for discord api
