@@ -5,6 +5,8 @@ Yoinking https://github.com/Dhravya/discord-voice-transcript-for-teams
 - Removing chat summarization for now as I don't want it
 - Using self-hosted whisper model to do the transcribing, paired with stable-ts to keep timestamps somewhat diarized between speaker audio files (its not perfect)
 
+I'm not a python programmer, so expect this code to be awfully shite, I just needed something simple for my own discord servers
+
 ## How to use
 
 1. Create a discord bot and invite it to your server. [Guide](https://discordpy.readthedocs.io/en/latest/discord.html)
