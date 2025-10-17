@@ -10,8 +10,6 @@ Removing chat summarization for now as I don't want it / need it at this stage :
 2. Clone this repo and install the requirements `pip install -r requirements.txt`
 3. Create a `.env` file and add the following variables:
     - `DISCORD_BOT_TOKEN`: The token of your discord bot
-    - `DEEPGRAM_API_TOKEN`: For transcription
-    ~~- `ANYSCALE_MISTRAL_TOKEN`: For summary and analysis of the transcript~~
 
 4. Run the bot `python main.py`
 
@@ -22,6 +20,6 @@ Removing chat summarization for now as I don't want it / need it at this stage :
 
 ## Tools used
 
-- [Deepgram](https://www.deepgram.com/) - For transcription
-~~- [Anyscale](https://www.anyscale.com/) - For summary and analysis of the transcript, used because it allows function calling on mistral.~~
+
 - [Pycord](https://pycord.dev) - Python wrapper for discord api
+- Whisper (Transcription)

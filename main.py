@@ -1,22 +1,14 @@
 import discord
 from dotenv import load_dotenv
 from os import environ as env
-from deepgram import DeepgramClient, PrerecordedOptions, FileSource
+#from whisper_cpp_python import Whisper
+from pywhispercpp.model import Model
 
 bot = discord.Bot()
 connections = {}
 load_dotenv()
 
-deepgram = DeepgramClient(env.get("DEEPGRAM_API_TOKEN"))
-
-options = PrerecordedOptions(
-    model="nova-2",
-    smart_format=True,
-    utterances=True,
-    punctuate=True,
-    diarize=True,
-    detect_language=True,
-)
+model = Model('base.en')
 
 discord.opus.load_opus("/usr/local/opt/opus/lib/libopus.0.dylib")
 
@@ -43,15 +35,20 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
     await sink.vc.disconnect()
 
     words_list = []
+    whisper = Whisper(model_path="./models/ggml-tiny.bin")
 
     for user_id, audio in sink.audio_data.items():
         payload: FileSource = {
             "buffer": audio.file.read(),
         }
 
-        response = deepgram.listen.prerecorded.v("1").transcribe_file(payload, options)
-
-        words = response["results"]["channels"][0]["alternatives"][0]["words"]
+        #output = whisper.transcribe(payload["buffer"])
+        #print(output)
+        segments = model.transcribe(payload["buffer"])
+        print("Got segments?")
+        for segment in segments:
+            print(segment.text)
+        words = segments
 
         words = [word.to_dict() for word in words]
 

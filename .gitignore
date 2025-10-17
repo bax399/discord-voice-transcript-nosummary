@@ -6,3 +6,5 @@ __pycache__/
 /.vs/discord-voice-transcript-nosummary/FileContentIndex
 /.vs/discord-voice-transcript-nosummary/v17
 /.vs
+/out/build/x64-Debug/.cmake/api/v1
+/out/build/x64-Debug
