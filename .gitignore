@@ -8,3 +8,4 @@ __pycache__/
 /.vs
 /out/build/x64-Debug/.cmake/api/v1
 /out/build/x64-Debug
+/recorded_wavs

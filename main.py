@@ -11,15 +11,19 @@ from os import environ as env
 from pywhispercpp.model import Model
 from pydub import AudioSegment
 
+
 import librosa
 import soundfile as sf  # For saving the WAV file
 import numpy as np
+
+import stable_whisper
 
 bot = discord.Bot()
 connections = {}
 load_dotenv()
 
-model = Model('medium.en',n_threads=5)
+#model = Model('medium.en',n_threads=5)
+model = stable_whisper.load_model('medium.en')
 print('Loaded model')
 channelstash = {}
 
@@ -116,7 +120,9 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
             print(f"Failed to save WAV for user {user_id}: {e}")
         
         try:
-            segments = model.transcribe(str(out_path), token_timestamps=True, max_len=1, split_on_word=True, suppress_blank=False)
+            #segments = model.transcribe(str(out_path), token_timestamps=True, max_len=1, split_on_word=True, suppress_blank=False)
+            result = model.transcribe_minimal(str(out_path), suppress_blank=False, word_timestamps=True)
+            print(vars(result))
         except Exception as e:
             print(f"failed transcribe {e}")
         
@@ -129,16 +135,16 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
         except Exception:
             # member fetch failed (not in guild or API error) keep mention string
             pass
-
-        for seg in segments:
-            new_segment = {
-                "speaker" : speaker_display,
-                "user" : user_id,
-                "text" : seg.text,
-                "start" : seg.t0,
-                "end" : seg.t1
-            }
-            segments_list.append(new_segment)
+        for segment in result:
+            for word in segment:
+                new_segment = {
+                    "speaker" : speaker_display,
+                    "user" : user_id,
+                    "text" : word.word,
+                    "start" : word.start,
+                    "end" : word.end
+                }
+                segments_list.append(new_segment)
 
         # cleanup temporary file
         if os.path.exists(str(out_path)):
@@ -152,7 +158,7 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
 
     for segment in segments_list:
         if "speaker" in segment and segment["speaker"] != current_speaker:
-            transcript += f"\n\nSpeaker {segment['speaker']}: "
+            transcript += f"\n{segment['speaker']}: "
             current_speaker = segment["speaker"]
         transcript += f"{segment['text']} "
 

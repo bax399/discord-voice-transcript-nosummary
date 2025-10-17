@@ -6,3 +6,4 @@ python-dotenv
 pywhispercpp
 
 pydub
+stable-ts
