@@ -19,9 +19,9 @@ bot = discord.Bot()
 connections = {}
 load_dotenv()
 
-model = Model('base.en')
+model = Model('medium.en',n_threads=5)
 print('Loaded model')
-
+channelstash = {}
 
 def downsample_audio_to_ndarray(input_bytes, target_sr=16000) -> np.ndarray:
     """
@@ -66,6 +66,9 @@ async def record(ctx):  # If you're using commands.Bot, this will also work.
     vc = await voice.channel.connect()  # Connect to the voice channel the author is in.
     connections.update({ctx.guild.id: vc})  # Updating the cache with the guild and channel.
 
+    # stash the guild object so once_done can look up members later
+    channelstash[ctx.guild.id] = ctx.guild
+
     vc.start_recording(
         discord.sinks.MP3Sink(),  # The sink type to use.
         once_done,  # What to do once done.
@@ -81,13 +84,17 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
     ]
     await sink.vc.disconnect()
     files = [discord.File(audio.file, f"{user_id}.{sink.encoding}") for user_id, audio in sink.audio_data.items()]
-    await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)
+    #DISABLE FILE SENDING
+    #await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)
 
     repo_root = Path(__file__).resolve().parent
     out_dir = repo_root / "recorded_wavs"
 
+    segments_list = []
+    # resolve the guild we stashed (fallback to channel.guild)
+    guild = channelstash.get(channel.guild.id) or channel.guild
+
     for user_id, audio in sink.audio_data.items():
-        print("saving locally")
         try:
             # ensure pointer at start
             try:
@@ -113,12 +120,46 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
             print(f"failed transcribe {e}")
 
         # Convert segments to a readable string (library dependent)
+        speaker_display = f"<@{user_id}>"
         try:
-            pretty = "\n".join(getattr(s, "text", str(s)) for s in segments)
+            member = await guild.fetch_member(int(user_id))
+            # prefer nickname, then display_name
+            speaker_display = member.nick or member.display_name or str(member)
         except Exception:
-            pretty = str(segments)
+            # member fetch failed (not in guild or API error) keep mention string
+            pass
 
-        await channel.send(f"transcription:\n{pretty}")
+        for seg in segments:
+            new_segment = {
+                "speaker" : speaker_display,
+                "user" : user_id,
+                "text" : seg.text,
+                "start" : seg.t0,
+                "end" : seg.t1
+            }
+            segments_list.append(new_segment)
+
+        # cleanup temporary file
+        if os.path.exists(out_path):
+            os.remove(out_path)
+
+    segments_list.sort(key=lambda x: x["start"])
+    print(segments_list)
+
+    transcript = ""
+    current_speaker = None
+
+    for segment in segments_list:
+        if "speaker" in segment and segment["speaker"] != current_speaker:
+            transcript += f"\n\nSpeaker {segment['speaker']}: "
+            current_speaker = segment["speaker"]
+        transcript += f"{segment['text']} "
+
+    transcript = transcript.strip()
+
+    await channel.send(
+        f"Finished recording audio for: {', '.join(recorded_users)}. \n Here is the transcript: \n\n{transcript}\n"
+    )    
 
 
 @bot.command()
