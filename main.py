@@ -1,12 +1,15 @@
 import discord
 import io
 import tempfile
+import pathlib
 import os
 import time
+import pydub  # pip install pydub==0.25.1
 from pathlib import Path
 from dotenv import load_dotenv
 from os import environ as env
 from pywhispercpp.model import Model
+from pydub import AudioSegment
 
 import librosa
 import soundfile as sf  # For saving the WAV file
@@ -20,60 +23,37 @@ model = Model('base.en')
 print('Loaded model')
 
 
-def downsample_audio(input_bytes, target_sr=16000):
+def downsample_audio_to_ndarray(input_bytes, target_sr=16000) -> np.ndarray:
     """
-    Read WAV bytes, resample to `target_sr`, convert to mono, and return WAV bytes.
+    Read WAV bytes, resample to `target_sr`, convert to mono, and return a float32 1-D numpy array.
 
-    - Uses soundfile to read the incoming bytes.
-    - Uses librosa.resample for high-quality resampling.
+    - Uses soundfile to read the incoming bytes into float32 samples.
     - Converts multi-channel audio to mono by averaging channels.
-    - Writes out a WAV into an in-memory buffer and returns its bytes.
+    - Uses librosa.resample to resample to target_sr (high quality).
+    - Returns a 1-D numpy.ndarray (dtype float32) with the resampled audio at `target_sr`.
 
-    On error the original bytes are returned.
+    On error returns None.
     """
     try:
-        # Read input bytes into numpy array and detect sample rate
-        data, sr = sf.read(io.BytesIO(input_bytes))
-        print(f"sample rate {sr}")
-        # Ensure data is a numpy array
+        # Read input bytes into numpy array (as float32) and detect sample rate
+        data, sr = sf.read(io.BytesIO(input_bytes), dtype="float32")
         data = np.asarray(data)
 
-        # If multi-channel, resample each channel then average to mono
+        # Convert multi-channel to mono
+        if data.ndim > 1:
+            print(f"multi channel detected: {data.ndim}")
+            data = np.mean(data, axis=1)
+
+        # If required, resample to target_sr
         if sr != target_sr:
+            data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
 
-            if data.ndim == 1:
-                y = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
-            else:
-                # resample each column (channel) then stack
-                resampled_channels = [
-                    librosa.resample(data[:, ch].astype(float), orig_sr=sr, target_sr=target_sr)
-                    for ch in range(data.shape[1])
-                ]
-                # align lengths then average to mono
-                min_len = min(len(c) for c in resampled_channels)
-                stacked = np.stack([c[:min_len] for c in resampled_channels], axis=1)
-                y = np.mean(stacked, axis=1)
-        else:
-            # sample rate already matches target
-            if data.ndim == 1:
-                y = data
-            else:
-                # convert to mono by averaging channels
-                y = np.mean(data, axis=1)
-
-        # Ensure float32 for writing
-        y = y.astype(np.float32)
-
-        # Write to in-memory WAV and return bytes
-        out = io.BytesIO()
-        sf.write(out, y, target_sr, format="WAV")
-        out.seek(0)
-        return out.read()
-
+        # Ensure float32 1-D ndarray
+        arr = np.asarray(data, dtype=np.float32).flatten()
+        return arr
     except Exception as e:
-        # On failure, log and return original bytes so caller can fallback
-        print(f"downsample_audio failed: {e}")
-        return input_bytes
+        print(f"downsample_audio_to_ndarray failed: {e}")
+        return None
 
 
 @bot.command()
@@ -87,60 +67,52 @@ async def record(ctx):  # If you're using commands.Bot, this will also work.
     connections.update({ctx.guild.id: vc})  # Updating the cache with the guild and channel.
 
     vc.start_recording(
-        discord.sinks.WaveSink(),  # The sink type to use.
+        discord.sinks.MP3Sink(),  # The sink type to use.
         once_done,  # What to do once done.
-        ctx.channel  # The channel to disconnect from.
+        ctx.channel  # The channel to disconnect from
     )
     await ctx.respond("Started recording!")
 
 
-async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):  # Our voice client already passes these in.
-    recorded_users = [  # A list of recorded users
+async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
+    recorded_users = [
         f"<@{user_id}>"
         for user_id, audio in sink.audio_data.items()
     ]
-    await sink.vc.disconnect()  # Disconnect from the voice channel.
-    files = [discord.File(audio.file, f"{user_id}.{sink.encoding}") for user_id, audio in sink.audio_data.items()]  # List down the files.
-    await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)  # Send a message with the accumulated files.
-    
-    await channel.send(f"transcribing...")
-    # Play each user's WAV bytes (non-blocking for the event loop)
+    await sink.vc.disconnect()
+    files = [discord.File(audio.file, f"{user_id}.{sink.encoding}") for user_id, audio in sink.audio_data.items()]
+    await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)
+
+    repo_root = Path(__file__).resolve().parent
+    out_dir = repo_root / "recorded_wavs"
+
     for user_id, audio in sink.audio_data.items():
-        audio.file.seek(0)
-        wav_bytes = audio.file.read()
-         # Resample to 16k mono (required by the model)
-        TARGET_RATE = 16000
-        wav_bytes_for_model = downsample_audio(wav_bytes, target_sr=TARGET_RATE)
-
+        print("saving locally")
         try:
-            buf = io.BytesIO(wav_bytes_for_model)
-            buf.seek(0)
-            filename = f"{user_id}_16k.wav"
-            await channel.send(content=f"Downsampled audio for <@{user_id}>:", file=discord.File(buf, filename=filename))
-        except Exception as e:
-            print(f"Failed to send downsampled audio for {user_id}: {e}")
-
-        # model.transcribe may accept raw bytes or a filename; try bytes first, fallback to temp file
-        try:
-            segments = model.transcribe(wav_bytes_for_model)
-        except Exception:
-            tmp_path = None
+            # ensure pointer at start
             try:
-                # Create a temporary path and use soundfile to write a valid WAV there.
-                fd, tmp_path = tempfile.mkstemp(suffix=".wav")
-                os.close(fd)  # Close the low-level fd so soundfile can open the path on Windows
-                # Read in-memory WAV bytes to numpy data + samplerate, then write a proper WAV file using soundfile
-                data, sr = sf.read(io.BytesIO(wav_bytes_for_model))
-                sf.write(tmp_path, data, sr, format="WAV", subtype="PCM_16")
-                segments = model.transcribe(tmp_path)
-            finally:
-                if tmp_path and os.path.exists(tmp_path):
-                    try:
-                        os.unlink(tmp_path)
-                    except Exception:
-                        pass
+                audio.file.seek(0)
+            except Exception:
+                pass
+
+            wav_bytes = audio.file.read()
+            if not wav_bytes:
+                print(f"No bytes for user {user_id}, skipping save.")
+                continue
+
+            filename = f"{int(time.time())}_{user_id}.mp3"
+            out_path = out_dir / filename
+            out_path.write_bytes(wav_bytes)
+            print(f"Saved recorded WAV for user {user_id} to {out_path}")
+        except Exception as e:
+            print(f"Failed to save WAV for user {user_id}: {e}")
         
-        # segments is library-specific; convert to a reasonable string for quick feedback
+        try:
+            segments = model.transcribe(str(out_path))
+        except Exception as e:
+            print(f"failed transcribe {e}")
+
+        # Convert segments to a readable string (library dependent)
         try:
             pretty = "\n".join(getattr(s, "text", str(s)) for s in segments)
         except Exception:
@@ -151,13 +123,13 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):  
 
 @bot.command()
 async def stop_recording(ctx):
-    if ctx.guild.id in connections:  # Check if the guild is in the cache.
+    if ctx.guild.id in connections:
         vc = connections[ctx.guild.id]
-        vc.stop_recording()  # Stop recording, and call the callback (once_done).
-        del connections[ctx.guild.id]  # Remove the guild from the cache.
-        await ctx.delete()  # And delete.
+        vc.stop_recording()
+        del connections[ctx.guild.id]
+        await ctx.delete()
     else:
-        await ctx.respond("I am currently not recording here.")  # Respond with this if we aren't recording.
+        await ctx.respond("I am currently not recording here.")
 
 
 bot.run(env.get("DISCORD_BOT_TOKEN"))
