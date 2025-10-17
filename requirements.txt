@@ -4,3 +4,4 @@ pynacl
 python-dotenv
 # whisper-cpp-python
 pywhispercpp
+pydub
