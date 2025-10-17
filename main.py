@@ -72,7 +72,8 @@ async def record(ctx):  # If you're using commands.Bot, this will also work.
     vc.start_recording(
         discord.sinks.MP3Sink(),  # The sink type to use.
         once_done,  # What to do once done.
-        ctx.channel  # The channel to disconnect from
+        ctx.channel,  # The channel to disconnect from
+        sync_start=True
     )
     await ctx.respond("Started recording!")
 
@@ -85,7 +86,7 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
     await sink.vc.disconnect()
     files = [discord.File(audio.file, f"{user_id}.{sink.encoding}") for user_id, audio in sink.audio_data.items()]
     #DISABLE FILE SENDING
-    #await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)
+    await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)
 
     repo_root = Path(__file__).resolve().parent
     out_dir = repo_root / "recorded_wavs"
@@ -115,10 +116,10 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
             print(f"Failed to save WAV for user {user_id}: {e}")
         
         try:
-            segments = model.transcribe(str(out_path))
+            segments = model.transcribe(str(out_path), token_timestamps=True, max_len=1, split_on_word=True, suppress_blank=False)
         except Exception as e:
             print(f"failed transcribe {e}")
-
+        
         # Convert segments to a readable string (library dependent)
         speaker_display = f"<@{user_id}>"
         try:
@@ -140,8 +141,8 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
             segments_list.append(new_segment)
 
         # cleanup temporary file
-        if os.path.exists(out_path):
-            os.remove(out_path)
+        if os.path.exists(str(out_path)):
+            os.remove(str(out_path))
 
     segments_list.sort(key=lambda x: x["start"])
     print(segments_list)
