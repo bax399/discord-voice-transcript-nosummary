@@ -2,7 +2,8 @@
 
 Yoinking https://github.com/Dhravya/discord-voice-transcript-for-teams
 
-Removing chat summarization for now as I don't want it / need it at this stage :)
+- Removing chat summarization for now as I don't want it
+- Using self-hosted whisper model to do the transcribing, paired with stable-ts to keep timestamps somewhat diarized between speaker audio files (its not perfect)
 
 ## How to use
 
