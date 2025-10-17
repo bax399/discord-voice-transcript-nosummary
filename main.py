@@ -25,39 +25,6 @@ model = stable_whisper.load_model('medium.en')
 print('Loaded model')
 channelstash = {}
 
-def downsample_audio_to_ndarray(input_bytes, target_sr=16000) -> np.ndarray:
-    """
-    Read WAV bytes, resample to `target_sr`, convert to mono, and return a float32 1-D numpy array.
-
-    - Uses soundfile to read the incoming bytes into float32 samples.
-    - Converts multi-channel audio to mono by averaging channels.
-    - Uses librosa.resample to resample to target_sr (high quality).
-    - Returns a 1-D numpy.ndarray (dtype float32) with the resampled audio at `target_sr`.
-
-    On error returns None.
-    """
-    try:
-        # Read input bytes into numpy array (as float32) and detect sample rate
-        data, sr = sf.read(io.BytesIO(input_bytes), dtype="float32")
-        data = np.asarray(data)
-
-        # Convert multi-channel to mono
-        if data.ndim > 1:
-            print(f"multi channel detected: {data.ndim}")
-            data = np.mean(data, axis=1)
-
-        # If required, resample to target_sr
-        if sr != target_sr:
-            data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
-
-        # Ensure float32 1-D ndarray
-        arr = np.asarray(data, dtype=np.float32).flatten()
-        return arr
-    except Exception as e:
-        print(f"downsample_audio_to_ndarray failed: {e}")
-        return None
-
-
 @bot.command()
 async def record(ctx):  # If you're using commands.Bot, this will also work.
     voice = ctx.author.voice
