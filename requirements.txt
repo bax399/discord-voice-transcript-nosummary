@@ -1,9 +1,7 @@
 py-cord
-deepgram-sdk
 pynacl
 python-dotenv
-
-pywhispercpp
-
 pydub
 stable-ts
+librosa
+soundfile

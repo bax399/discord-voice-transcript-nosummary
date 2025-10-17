@@ -4,13 +4,11 @@ import tempfile
 import pathlib
 import os
 import time
-import pydub  # pip install pydub==0.25.1
+import pydub
 from pathlib import Path
 from dotenv import load_dotenv
 from os import environ as env
-from pywhispercpp.model import Model
 from pydub import AudioSegment
-
 
 import librosa
 import soundfile as sf  # For saving the WAV file
