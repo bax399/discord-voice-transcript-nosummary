@@ -1,4 +1,4 @@
-# A Discord Bot that listens to a voice channel, transcribes the audio and assigns tasks to the users.
+# A fully self-hosted Discord Bot that listens to a voice channel and transcribes the audio
 
 Yoinking https://github.com/Dhravya/discord-voice-transcript-for-teams
 
@@ -23,3 +23,4 @@ Removing chat summarization for now as I don't want it / need it at this stage :
 
 - [Pycord](https://pycord.dev) - Python wrapper for discord api
 - Whisper (Transcription)
+- https://github.com/jianfch/stable-ts/tree/main For stable transcription timestamping
