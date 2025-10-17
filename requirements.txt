@@ -2,6 +2,7 @@ py-cord
 deepgram-sdk
 pynacl
 python-dotenv
-# whisper-cpp-python
+
 pywhispercpp
+
 pydub
