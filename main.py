@@ -1,7 +1,11 @@
 import discord
+import os
+from dotenv import load_dotenv
+from os import environ as env
 
 bot = discord.Bot()
 connections = {}
+load_dotenv()
 
 @bot.command()
 async def record(ctx):  # If you're using commands.Bot, this will also work.
