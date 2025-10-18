@@ -48,6 +48,7 @@ async def record(ctx):  # If you're using commands.Bot, this will also work.
 
 
 async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
+    # TODO if stop recording hasn't been called, bot should reconnect automatically!
     recorded_users = [
         f"<@{user_id}>"
         for user_id, audio in sink.audio_data.items()
@@ -55,7 +56,7 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
     await sink.vc.disconnect()
     files = [discord.File(audio.file, f"{user_id}.{sink.encoding}") for user_id, audio in sink.audio_data.items()]
     #DISABLE FILE SENDING
-    await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)
+    # await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)
 
     repo_root = Path(__file__).resolve().parent
     out_dir = repo_root / "recorded_wavs"
@@ -111,10 +112,6 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
                 }
                 segments_list.append(new_segment)
 
-        # cleanup temporary file
-        if os.path.exists(str(out_path)):
-            os.remove(str(out_path))
-
     segments_list.sort(key=lambda x: x["start"])
     print(segments_list)
 
@@ -132,6 +129,19 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
     await channel.send(
         f"Finished recording audio for: {', '.join(recorded_users)}. \n Here is the transcript: \n\n{transcript}\n"
     )    
+    
+        # Cleanup: remove all files under `recorded_wavs`
+    try:
+        for p in out_dir.iterdir():
+            if p.is_file():
+                try:
+                    p.unlink()
+                except Exception as e:
+                    print(f"Failed to remove {p}: {e}")
+        print(f"Cleaned up files under {out_dir}")
+    except Exception as e:
+        print(f"Failed cleanup of {out_dir}: {e}")
+
 
 
 @bot.command()
