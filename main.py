@@ -25,6 +25,8 @@ model = stable_whisper.load_model('medium.en')
 print('Loaded model')
 channelstash = {}
 
+# periodically start_recording then stop recording after a set time, fire off a new 
+
 @bot.command()
 async def record(ctx):  # If you're using commands.Bot, this will also work.
     voice = ctx.author.voice
